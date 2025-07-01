@@ -11,7 +11,7 @@ def train_model():
     """
     # Load the processed data
     try:
-        df = pd.read_csv('../data/processed/processed_data.csv')
+        df = pd.read_csv('Data/processed/processed_data.csv')
     except FileNotFoundError:
         print("Processed data not found. Please run src/data_processing.py first.")
         return
@@ -23,6 +23,12 @@ def train_model():
         
     X = df.drop('is_high_risk', axis=1)
     y = df['is_high_risk']
+
+    # Drop identifier columns that are not features
+    if 'CustomerId' in X.columns:
+        X = X.drop('CustomerId', axis=1)
+    if 'TransactionStartTime' in X.columns:
+        X = X.drop('TransactionStartTime', axis=1)
 
     # Split the data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
