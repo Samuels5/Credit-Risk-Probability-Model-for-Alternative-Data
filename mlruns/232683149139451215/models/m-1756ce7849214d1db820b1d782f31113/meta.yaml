@@ -1,0 +1,10 @@
+artifact_location: file:///C:/.vscode/jupiter/Credit-Risk-Probability-Model-for-Alternative-Data/mlruns/232683149139451215/models/m-1756ce7849214d1db820b1d782f31113/artifacts
+creation_timestamp: 1751363937205
+experiment_id: '232683149139451215'
+last_updated_timestamp: 1751363949640
+model_id: m-1756ce7849214d1db820b1d782f31113
+model_type: null
+name: model
+source_run_id: 071c571642fb470883a19a4854487620
+status: 2
+status_message: null

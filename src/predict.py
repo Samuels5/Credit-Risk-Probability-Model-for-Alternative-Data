@@ -48,7 +48,9 @@ def make_predictions(input_filepath: str, output_filepath: str):
         return
 
     print("Making predictions...")
-    predictions = model.predict(processed_new_data)
+    # Drop the columns that were not used during training
+    processed_new_data_for_prediction = processed_new_data.drop(columns=['CustomerId', 'TransactionStartTime'], errors='ignore')
+    predictions = model.predict(processed_new_data_for_prediction)
 
     # Create a DataFrame with the results
     results_df = pd.DataFrame({
@@ -65,5 +67,4 @@ if __name__ == '__main__':
     parser.add_argument("--input", type=str, required=True, help="Path to the input CSV file with new data.")
     parser.add_argument("--output", type=str, required=True, help="Path to save the output CSV file with predictions.")
     args = parser.parse_args()
-
     make_predictions(args.input, args.output)

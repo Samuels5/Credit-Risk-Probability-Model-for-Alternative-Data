@@ -7,3 +7,5 @@ uvicorn
 flake8
 xverse
 woe
+python-multipart
+docker

@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/.vscode/jupiter/Credit-Risk-Probability-Model-for-Alternative-Data/mlruns/232683149139451215/175a08527212421ba440e904a8945a34/artifacts
+end_time: 1751363677656
+entry_point_name: ''
+experiment_id: '232683149139451215'
+lifecycle_stage: active
+run_id: 175a08527212421ba440e904a8945a34
+run_name: LogisticRegression
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1751363669908
+status: 4
+tags: []
+user_id: Owner

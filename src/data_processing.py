@@ -17,18 +17,13 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     categorical_features = df.select_dtypes(include=['object']).columns.tolist()
 
     # Remove target and other unnecessary columns from feature lists
-    numerical_features.remove('FraudResult')
-    categorical_features.remove('TransactionId')
-    categorical_features.remove('BatchId')
-    categorical_features.remove('AccountId')
-    categorical_features.remove('SubscriptionId')
-    categorical_features.remove('CustomerId')
-    categorical_features.remove('CurrencyCode')
-    categorical_features.remove('CountryCode')
-    categorical_features.remove('ProviderId')
-    categorical_features.remove('ProductId')
-    categorical_features.remove('ChannelId')
+    if 'FraudResult' in numerical_features:
+        numerical_features.remove('FraudResult')
 
+    features_to_remove = ['TransactionId', 'BatchId', 'AccountId', 'SubscriptionId', 'CustomerId', 'CurrencyCode', 'CountryCode', 'ProviderId', 'ProductId', 'ChannelId']
+    for feature in features_to_remove:
+        if feature in categorical_features:
+            categorical_features.remove(feature)
 
     # Create preprocessing pipelines for numerical and categorical features
     numerical_transformer = Pipeline(steps=[
@@ -63,6 +58,10 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     # Create a new dataframe with the processed data
     processed_df = pd.DataFrame(processed_data, columns=all_feature_names, index=df.index)
 
+    # --- Re-add CustomerID and TransactionStartTime for feature engineering ---
+    processed_df['CustomerId'] = df['CustomerId']
+    processed_df['TransactionStartTime'] = df['TransactionStartTime']
+
 
     # --- Feature Engineering ---
 
@@ -77,10 +76,10 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
     # 2. Extract Features from TransactionStartTime
-    processed_df['TransactionHour'] = df['TransactionStartTime'].dt.hour
-    processed_df['TransactionDay'] = df['TransactionStartTime'].dt.day
-    processed_df['TransactionMonth'] = df['TransactionStartTime'].dt.month
-    processed_df['TransactionYear'] = df['TransactionStartTime'].dt.year
+    processed_df['TransactionHour'] = processed_df['TransactionStartTime'].dt.hour
+    processed_df['TransactionDay'] = processed_df['TransactionStartTime'].dt.day
+    processed_df['TransactionMonth'] = processed_df['TransactionStartTime'].dt.month
+    processed_df['TransactionYear'] = processed_df['TransactionStartTime'].dt.year
 
     # --- Task 4: Proxy Target Variable Engineering ---
 
@@ -126,12 +125,12 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
 if __name__ == '__main__':
     # Load the data
-    df = pd.read_csv('../data/data.csv')
+    df = pd.read_csv('Data/data.csv')
     
     # Preprocess the data
     processed_df = preprocess_data(df.copy())
     
     # Save the processed data
-    processed_df.to_csv('../data/processed/processed_data.csv', index=False)
-    
-    print("Data processing complete. Processed data saved to data/processed/processed_data.csv")
+    processed_df.to_csv('Data/processed/processed_data.csv', index=False)
+
+    print("Data processing complete. Processed data saved to Data/processed/processed_data.csv")
