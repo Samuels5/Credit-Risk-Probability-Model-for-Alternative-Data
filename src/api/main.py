@@ -10,6 +10,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.pydantic_models import PredictionRequest, PredictionResponse
 
+# Set the MLflow tracking URI to connect to the MLflow server
+mlflow.set_tracking_uri("http://mlflow:5000")
+
 app = FastAPI(title="Credit Risk Prediction API", description="API for predicting credit risk.")
 
 model = None

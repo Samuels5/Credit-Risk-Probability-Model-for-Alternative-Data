@@ -52,6 +52,7 @@ def train_model():
     }
 
     # Start an MLflow experiment
+    mlflow.set_tracking_uri("http://localhost:5000")
     mlflow.set_experiment("Credit_Risk_Modeling")
 
     best_model_run_id = None
