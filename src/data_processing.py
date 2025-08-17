@@ -1,136 +1,87 @@
+"""
+Main data processing module for the Credit Risk Model.
+This module orchestrates the entire data processing pipeline.
+"""
 import pandas as pd
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.impute import SimpleImputer
-from sklearn.compose import ColumnTransformer
-from sklearn.cluster import KMeans
+import os
+from typing import Optional
+
+from src.preprocessing import DataPreprocessor
+from src.feature_engineering import (
+    create_aggregate_features,
+    create_time_features,
+    calculate_rfm_metrics,
+    assign_risk_labels
+)
 
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    This function takes a raw dataframe and returns a preprocessed dataframe.
+    Process raw transaction data to create features and proxy target variable.
+    
+    This function orchestrates the entire data processing pipeline:
+    1. Preprocess the raw data (imputation, scaling, encoding)
+    2. Create aggregate customer features
+    3. Extract time-based features
+    4. Calculate RFM metrics
+    5. Assign risk labels based on clustering
+    
+    Args:
+        df: DataFrame containing raw transaction data
+        
+    Returns:
+        Processed DataFrame with features and target variable
     """
-    # Convert TransactionStartTime to datetime
-    df['TransactionStartTime'] = pd.to_datetime(df['TransactionStartTime'])
-
-    # Define numerical and categorical features
-    numerical_features = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    categorical_features = df.select_dtypes(include=['object']).columns.tolist()
-
-    # Remove target and other unnecessary columns from feature lists
-    if 'FraudResult' in numerical_features:
-        numerical_features.remove('FraudResult')
-
-    features_to_remove = ['TransactionId', 'BatchId', 'AccountId', 'SubscriptionId', 'CustomerId', 'CurrencyCode', 'CountryCode', 'ProviderId', 'ProductId', 'ChannelId']
-    for feature in features_to_remove:
-        if feature in categorical_features:
-            categorical_features.remove(feature)
-
-    # Create preprocessing pipelines for numerical and categorical features
-    numerical_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='median')),
-        ('scaler', StandardScaler())
-    ])
-
-    categorical_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='most_frequent')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore'))
-    ])
-
-    # Create a preprocessor object using ColumnTransformer
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', numerical_transformer, numerical_features),
-            ('cat', categorical_transformer, categorical_features)
-        ])
-
-    # Create the full pipeline
-    pipeline = Pipeline(steps=[('preprocessor', preprocessor)])
-
-    # Fit and transform the data
-    processed_data = pipeline.fit_transform(df)
-
-    # Get the feature names after one-hot encoding
-    ohe_feature_names = pipeline.named_steps['preprocessor'].named_transformers_['cat'].named_steps['onehot'].get_feature_names_out(categorical_features)
+    # Step 1: Preprocess the raw data
+    preprocessor = DataPreprocessor()
+    processed_df = preprocessor.fit_transform(df)
     
-    # Combine numerical and one-hot encoded feature names
-    all_feature_names = numerical_features + list(ohe_feature_names)
-
-    # Create a new dataframe with the processed data
-    processed_df = pd.DataFrame(processed_data, columns=all_feature_names, index=df.index)
-
-    # --- Re-add CustomerID and TransactionStartTime for feature engineering ---
-    processed_df['CustomerId'] = df['CustomerId']
-    processed_df['TransactionStartTime'] = df['TransactionStartTime']
-
-
-    # --- Feature Engineering ---
-
-    # 1. Aggregate Features
-    agg_features = df.groupby('CustomerId').agg({
-        'Amount': ['sum', 'mean', 'count', 'std']
-    }).reset_index()
-    agg_features.columns = ['CustomerId', 'TotalTransactionAmount', 'AvgTransactionAmount', 'TransactionCount', 'StdDevTransactionAmount']
-    
-    # Merge aggregate features
+    # Step 2: Create aggregate features
+    agg_features = create_aggregate_features(df)
     processed_df = processed_df.merge(agg_features, on='CustomerId', how='left')
-
-
-    # 2. Extract Features from TransactionStartTime
-    processed_df['TransactionHour'] = processed_df['TransactionStartTime'].dt.hour
-    processed_df['TransactionDay'] = processed_df['TransactionStartTime'].dt.day
-    processed_df['TransactionMonth'] = processed_df['TransactionStartTime'].dt.month
-    processed_df['TransactionYear'] = processed_df['TransactionStartTime'].dt.year
-
-    # --- Task 4: Proxy Target Variable Engineering ---
-
-    # 1. Calculate RFM Metrics
-    snapshot_date = df['TransactionStartTime'].max() + pd.Timedelta(days=1)
-    rfm = df.groupby('CustomerId').agg({
-        'TransactionStartTime': lambda date: (snapshot_date - date.max()).days,
-        'TransactionId': 'count',
-        'Amount': 'sum'
-    })
-
-    rfm.rename(columns={'TransactionStartTime': 'Recency',
-                        'TransactionId': 'Frequency',
-                        'Amount': 'MonetaryValue'},
-               inplace=True)
-
-    # 2. Cluster Customers
-    rfm_scaled = StandardScaler().fit_transform(rfm)
-    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-    rfm['Cluster'] = kmeans.fit_predict(rfm_scaled)
-
-    # 3. Define and Assign the "High-Risk" Label
-    # Analyze clusters to find the one with high recency, low frequency, and low monetary value
-    cluster_analysis = rfm.groupby('Cluster').agg({
-        'Recency': 'mean',
-        'Frequency': 'mean',
-        'MonetaryValue': 'mean'
-    }).reset_index()
-
-    # Assuming the cluster with the highest recency and lowest frequency/monetary is the highest risk
-    high_risk_cluster = cluster_analysis.sort_values(by=['Recency', 'Frequency', 'MonetaryValue'], ascending=[False, True, True]).iloc[0]['Cluster']
     
-    rfm['is_high_risk'] = rfm['Cluster'].apply(lambda x: 1 if x == high_risk_cluster else 0)
-
-    # 4. Integrate the Target Variable
-    processed_df = processed_df.merge(rfm[['is_high_risk']], on='CustomerId', how='left')
-
-    # Fill any NaNs in the new columns with 0 (or an appropriate value)
+    # Step 3: Extract time-based features
+    time_features = create_time_features(df)
+    processed_df = processed_df.merge(time_features, on='CustomerId', how='left')
+    
+    # Step 4: Calculate RFM metrics
+    rfm = calculate_rfm_metrics(df)
+    
+    # Step 5: Assign risk labels
+    risk_labels = assign_risk_labels(rfm)
+    processed_df = processed_df.merge(risk_labels[['is_high_risk']], on='CustomerId', how='left')
+    
+    # Fill any NaNs in the final dataset
     processed_df['is_high_risk'].fillna(0, inplace=True)
-    processed_df.fillna(0, inplace=True) # General fillna for any other potential NaNs from merges
+    processed_df.fillna(0, inplace=True)
+    
+    return processed_df
 
+def process_and_save_data(input_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
+    """
+    Load data from a file, process it, and optionally save the results.
+    
+    Args:
+        input_file: Path to the input CSV file
+        output_file: Path to save the processed data (if None, data is not saved)
+        
+    Returns:
+        Processed DataFrame
+    """
+    # Load the data
+    df = pd.read_csv(input_file)
+    
+    # Process the data
+    processed_df = preprocess_data(df.copy())
+    
+    # Save the processed data if output_file is provided
+    if output_file:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        processed_df.to_csv(output_file, index=False)
+        print(f"Data processing complete. Processed data saved to {output_file}")
+    
     return processed_df
 
 if __name__ == '__main__':
     # Load the data
-    df = pd.read_csv('Data/data.csv')
-    
-    # Preprocess the data
-    processed_df = preprocess_data(df.copy())
-    
-    # Save the processed data
-    processed_df.to_csv('Data/processed/processed_data.csv', index=False)
-
-    print("Data processing complete. Processed data saved to Data/processed/processed_data.csv")
+    process_and_save_data('Data/data.csv', 'Data/processed/processed_data.csv')
