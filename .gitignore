@@ -1,1 +1,12 @@
 data/
+artifacts/
+mlruns/
+__pycache__/
+.pytest_cache/
+*.pkl
+*.csv
+*.xlsx
+*.log
+*.tmp
+*.env
+notebooks/
