@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve
 
-from src.model_explainer import generate_explanation_report
+from model_explainer import generate_explanation_report
 
 def train_model():
     """
